@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast BLE Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #log {
+            width: 80%;
+            height: 150px;
+            border: 1px solid #ccc;
+            margin: 10px auto;
+            padding: 10px;
+            overflow-y: auto;
+            text-align: left;
+            background: #f9f9f9;
+        }
+        input {
+            padding: 8px;
+            font-size: 16px;
+            width: 60%;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Bluetooth Low Energy (BLE) Controller</h2>
+    <p id="status">Status: Disconnected</p>
+
+    <button id="connectBtn">Connect to Bluetooth</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+    <br>
+    
+    <input type="text" id="commandInput" placeholder="Enter command" disabled>
+    <button id="sendCommand" disabled>Send</button>
+
+    <h3>Received Data:</h3>
+    <div id="log"></div>
+
+    <script>
+        const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const CHARACTERISTIC_UUID_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Write
+        const CHARACTERISTIC_UUID_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Read/Notify
+
+        let bleDevice = null;
+        let server = null;
+        let rxCharacteristic = null;
+        let txCharacteristic = null;
+
+        async function connectBLE() {
+            try {
+                console.log("🔍 Scanning for Bluetooth Devices...");
+
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                document.getElementById("status").textContent = "Status: Connecting...";
+                
+                server = await bleDevice.gatt.connect();
+                console.log("✅ Connected to GATT Server");
+
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                console.log("🔹 Service Found:", SERVICE_UUID);
+
+                rxCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_RX);
+                console.log("✉️ RX Characteristic Found:", CHARACTERISTIC_UUID_RX);
+
+                txCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_TX);
+                console.log("📡 TX Characteristic Found:", CHARACTERISTIC_UUID_TX);
+
+                await txCharacteristic.startNotifications();
+                txCharacteristic.addEventListener("characteristicvaluechanged", handleNotifications);
+
+                document.getElementById("status").textContent = "Status: Connected!";
+                document.getElementById("commandInput").disabled = false;
+                document.getElementById("sendCommand").disabled = false;
+                document.getElementById("connectBtn").disabled = true;
+                document.getElementById("disconnectBtn").disabled = false;
+
+                bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
+                console.log("✅ BLE Connected Successfully!");
+
+            } catch (error) {
+                console.error("❌ Connection Failed:", error);
+                alert("Failed to connect: " + error.message);
+                document.getElementById("status").textContent = "Status: Connection Failed";
+            }
+        }
+
+        async function sendCommand() {
+            if (!rxCharacteristic) return alert("Not connected!");
+
+            try {
+                let command = document.getElementById("commandInput").value.trim();
+                if (!command) return alert("Enter a command first!");
+
+                let encoder = new TextEncoder().encode(command);
+
+                // Use writeValueWithoutResponse for better speed (if supported)
+                if (rxCharacteristic.properties.writeWithoutResponse) {
+                    await rxCharacteristic.writeValueWithoutResponse(encoder);
+                } else {
+                    await rxCharacteristic.writeValue(encoder);
+                }
+
+                console.log("📤 Command Sent:", command);
+            } catch (error) {
+                console.error("❌ Send Error:", error);
+            }
+        }
+
+        function handleNotifications(event) {
+            let value = new TextDecoder().decode(event.target.value);
+            console.log("📩 Received:", value);
+            let logDiv = document.getElementById("log");
+            logDiv.innerHTML += value + "<br>";
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function disconnectBLE() {
+            if (!bleDevice) return;
+
+            console.log("🔌 Disconnecting BLE...");
+            if (bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+            }
+        }
+
+        function onDisconnected() {
+            console.log("🚫 BLE Device Disconnected.");
+            document.getElementById("status").textContent = "Status: Disconnected";
+            document.getElementById("commandInput").disabled = true;
+            document.getElementById("sendCommand").disabled = true;
+            document.getElementById("connectBtn").disabled = false;
+            document.getElementById("disconnectBtn").disabled = true;
+        }
+
+        document.getElementById("connectBtn").addEventListener("click", connectBLE);
+        document.getElementById("disconnectBtn").addEventListener("click", disconnectBLE);
+        document.getElementById("sendCommand").addEventListener("click", sendCommand);
+    </script>
+
+</body>
+</html>
