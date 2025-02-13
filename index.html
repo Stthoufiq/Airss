@@ -16,7 +16,7 @@
             font-size: 16px;
             cursor: pointer;
         }
-        #log {
+        #log, #liveData {
             width: 80%;
             height: 150px;
             border: 1px solid #ccc;
@@ -25,21 +25,16 @@
             overflow-y: auto;
             text-align: left;
             background: #f9f9f9;
-            cursor: pointer;
         }
         input {
             padding: 8px;
             font-size: 16px;
             width: 60%;
         }
-        #liveBox {
-            margin-top: 15px;
-            padding: 10px;
-            border: 2px solid #333;
-            display: inline-block;
-            background: #f0f0f0;
-            font-size: 18px;
-            font-weight: bold;
+        .log-entry {
+            cursor: pointer;
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
         }
     </style>
 </head>
@@ -56,10 +51,11 @@
     <button id="sendCommand" disabled>Send</button>
 
     <h3>Received Data:</h3>
-    <div id="log">Click on received data to auto-send "button live @live=100"</div>
+    <div id="log"></div>
 
-    <h3>Live Data</h3>
-    <div id="liveBox">Temperature: -- °C | Humidity: -- %</div>
+    <h3>Live Data:</h3>
+    <div id="liveData">Waiting for data...</div>
+    <button id="liveTrigger" disabled>Trigger @live=100</button>
 
     <script>
         const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -81,7 +77,7 @@
                 });
 
                 document.getElementById("status").textContent = "Status: Connecting...";
-
+                
                 server = await bleDevice.gatt.connect();
                 console.log("✅ Connected to GATT Server");
 
@@ -102,6 +98,7 @@
                 document.getElementById("sendCommand").disabled = false;
                 document.getElementById("connectBtn").disabled = true;
                 document.getElementById("disconnectBtn").disabled = false;
+                document.getElementById("liveTrigger").disabled = false;
 
                 bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
                 console.log("✅ BLE Connected Successfully!");
@@ -136,17 +133,30 @@
             console.log("📩 Received:", value);
 
             let logDiv = document.getElementById("log");
-            logDiv.innerHTML += value + "<br>";
+            let logEntry = document.createElement("div");
+            logEntry.className = "log-entry";
+            logEntry.textContent = value;
+            logEntry.onclick = () => handleLogClick(value);
+            logDiv.appendChild(logEntry);
             logDiv.scrollTop = logDiv.scrollHeight;
 
-            // Check if received data contains temperature and humidity
-            if (value.includes("Live=")) {
-                let parts = value.replace("Live=", "").split(",");
-                if (parts.length === 2) {
-                    let temperature = parseFloat(parts[0]).toFixed(2);
-                    let humidity = parseFloat(parts[1]).toFixed(2);
-                    document.getElementById("liveBox").textContent = `Temperature: ${temperature} °C | Humidity: ${humidity} %`;
-                }
+            processLiveData(value);
+        }
+
+        function processLiveData(data) {
+            let match = data.match(/Live=([\d.]+),([\d.]+)/);
+            if (match) {
+                let temperature = match[1];
+                let humidity = match[2];
+
+                document.getElementById("liveData").textContent = `Temperature: ${temperature}°C, Humidity: ${humidity}%`;
+            }
+        }
+
+        function handleLogClick(data) {
+            let match = data.match(/Live=([\d.]+),([\d.]+)/);
+            if (match) {
+                sendCommand("@live=100");
             }
         }
 
@@ -166,7 +176,8 @@
             document.getElementById("sendCommand").disabled = true;
             document.getElementById("connectBtn").disabled = false;
             document.getElementById("disconnectBtn").disabled = true;
-            document.getElementById("liveBox").textContent = "Temperature: -- °C | Humidity: -- %";
+            document.getElementById("liveTrigger").disabled = true;
+            document.getElementById("liveData").textContent = "Waiting for data...";
         }
 
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
@@ -175,11 +186,8 @@
             let command = document.getElementById("commandInput").value.trim();
             if (command) sendCommand(command);
         });
+        document.getElementById("liveTrigger").addEventListener("click", () => sendCommand("@live=100"));
 
-        // Auto-send "button live @live=100" when clicking on received message
-        document.getElementById("log").addEventListener("click", () => {
-            sendCommand("button live @live=100");
-        });
     </script>
 
 </body>
