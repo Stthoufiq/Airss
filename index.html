@@ -29,9 +29,6 @@
         button:hover {
             background: #0056b3;
         }
-        button:disabled {
-            background: #444;
-        }
         #log {
             width: 90%;
             max-width: 400px;
@@ -43,25 +40,17 @@
             text-align: left;
             background: #1E1E1E;
             border-radius: 5px;
-            color: white;
-        }
-        .log-entry {
-            cursor: pointer;
-            padding: 5px;
-            border-bottom: 1px solid #333;
-            font-size: 14px;
         }
         .gauge-container {
             display: flex;
-            flex-wrap: wrap;
             justify-content: center;
-            gap: 15px;
-            margin-top: 20px;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
         }
         .gauge {
-            width: 45vw;
-            max-width: 200px;
-            height: auto;
+            width: 80px;
+            height: 80px;
         }
         input {
             width: 90%;
@@ -73,12 +62,6 @@
             font-size: 16px;
             background: #1E1E1E;
             color: white;
-        }
-
-        @media (max-width: 600px) {
-            .gauge {
-                width: 80%;
-            }
         }
     </style>
 </head>
@@ -151,11 +134,7 @@
 
             try {
                 let encoder = new TextEncoder().encode(command);
-                if (rxCharacteristic.properties.writeWithoutResponse) {
-                    await rxCharacteristic.writeValueWithoutResponse(encoder);
-                } else {
-                    await rxCharacteristic.writeValue(encoder);
-                }
+                await rxCharacteristic.writeValue(encoder);
             } catch (error) {
                 console.error("❌ Send Error:", error);
             }
@@ -165,9 +144,7 @@
             let value = new TextDecoder().decode(event.target.value);
             let logDiv = document.getElementById("log");
             let logEntry = document.createElement("div");
-            logEntry.className = "log-entry";
             logEntry.textContent = value;
-            logEntry.onclick = () => handleLogClick(value);
             logDiv.appendChild(logEntry);
             logDiv.scrollTop = logDiv.scrollHeight;
 
@@ -182,13 +159,6 @@
 
                 updateGauge(tempGauge, temperature);
                 updateGauge(humidityGauge, humidity);
-            }
-        }
-
-        function handleLogClick(data) {
-            let match = data.match(/Live=([\d.]+),([\d.]+)/);
-            if (match) {
-                sendCommand("@live=100");
             }
         }
 
