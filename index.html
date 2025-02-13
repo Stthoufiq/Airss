@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fast BLE Controller</title>
+    <title>BLE Controller with Speedometer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,7 +17,7 @@
             font-size: 16px;
             cursor: pointer;
         }
-        #log, #liveData {
+        #log {
             width: 80%;
             height: 150px;
             border: 1px solid #ccc;
@@ -26,15 +27,20 @@
             text-align: left;
             background: #f9f9f9;
         }
-        input {
-            padding: 8px;
-            font-size: 16px;
-            width: 60%;
-        }
         .log-entry {
             cursor: pointer;
             padding: 5px;
             border-bottom: 1px solid #ddd;
+        }
+        .gauge-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .gauge {
+            width: 200px;
+            height: 200px;
         }
     </style>
 </head>
@@ -46,15 +52,18 @@
     <button id="connectBtn">Connect to Bluetooth</button>
     <button id="disconnectBtn" disabled>Disconnect</button>
     <br>
-    
+
     <input type="text" id="commandInput" placeholder="Enter command" disabled>
     <button id="sendCommand" disabled>Send</button>
 
+    <h3>Live Data:</h3>
+    <div class="gauge-container">
+        <canvas id="tempGauge" class="gauge"></canvas>
+        <canvas id="humidityGauge" class="gauge"></canvas>
+    </div>
+
     <h3>Received Data:</h3>
     <div id="log"></div>
-
-    <h3>Live Data:</h3>
-    <div id="liveData">Waiting for data...</div>
     <button id="liveTrigger" disabled>Trigger @live=100</button>
 
     <script>
@@ -70,25 +79,18 @@
         async function connectBLE() {
             try {
                 console.log("🔍 Scanning for Bluetooth Devices...");
-
                 bleDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [SERVICE_UUID]
                 });
 
                 document.getElementById("status").textContent = "Status: Connecting...";
-                
                 server = await bleDevice.gatt.connect();
                 console.log("✅ Connected to GATT Server");
 
                 const service = await server.getPrimaryService(SERVICE_UUID);
-                console.log("🔹 Service Found:", SERVICE_UUID);
-
                 rxCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_RX);
-                console.log("✉️ RX Characteristic Found:", CHARACTERISTIC_UUID_RX);
-
                 txCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_TX);
-                console.log("📡 TX Characteristic Found:", CHARACTERISTIC_UUID_TX);
 
                 await txCharacteristic.startNotifications();
                 txCharacteristic.addEventListener("characteristicvaluechanged", handleNotifications);
@@ -115,13 +117,11 @@
 
             try {
                 let encoder = new TextEncoder().encode(command);
-
                 if (rxCharacteristic.properties.writeWithoutResponse) {
                     await rxCharacteristic.writeValueWithoutResponse(encoder);
                 } else {
                     await rxCharacteristic.writeValue(encoder);
                 }
-
                 console.log("📤 Command Sent:", command);
             } catch (error) {
                 console.error("❌ Send Error:", error);
@@ -146,10 +146,11 @@
         function processLiveData(data) {
             let match = data.match(/Live=([\d.]+),([\d.]+)/);
             if (match) {
-                let temperature = match[1];
-                let humidity = match[2];
+                let temperature = parseFloat(match[1]);
+                let humidity = parseFloat(match[2]);
 
-                document.getElementById("liveData").textContent = `Temperature: ${temperature}°C, Humidity: ${humidity}%`;
+                updateGauge(tempGauge, temperature);
+                updateGauge(humidityGauge, humidity);
             }
         }
 
@@ -162,7 +163,6 @@
 
         function disconnectBLE() {
             if (!bleDevice) return;
-
             console.log("🔌 Disconnecting BLE...");
             if (bleDevice.gatt.connected) {
                 bleDevice.gatt.disconnect();
@@ -177,7 +177,6 @@
             document.getElementById("connectBtn").disabled = false;
             document.getElementById("disconnectBtn").disabled = true;
             document.getElementById("liveTrigger").disabled = true;
-            document.getElementById("liveData").textContent = "Waiting for data...";
         }
 
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
@@ -187,6 +186,30 @@
             if (command) sendCommand(command);
         });
         document.getElementById("liveTrigger").addEventListener("click", () => sendCommand("@live=100"));
+
+        function createGauge(ctx, max) {
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [0, max],
+                        backgroundColor: ['#FF0000', '#e0e0e0']
+                    }]
+                },
+                options: {
+                    cutout: '80%',
+                    responsive: false
+                }
+            });
+        }
+
+        function updateGauge(chart, value) {
+            chart.data.datasets[0].data[0] = value;
+            chart.update();
+        }
+
+        let tempGauge = createGauge(document.getElementById("tempGauge").getContext("2d"), 100);
+        let humidityGauge = createGauge(document.getElementById("humidityGauge").getContext("2d"), 100);
 
     </script>
 
