@@ -10,29 +10,28 @@
             font-family: Arial, sans-serif;
             text-align: center;
             margin: 20px;
-            background: #000000;
-            color: #FFFFFF;
+            background: #000;
+            color: #FFF;
         }
         button {
-            padding: 12px;
+            padding: 10px;
             margin: 8px;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             width: 90%;
-            max-width: 300px;
+            max-width: 250px;
             border: none;
             border-radius: 5px;
             background: #007BFF;
             color: white;
             transition: 0.3s;
         }
-        button:hover {
-            background: #0056b3;
-        }
+        button:hover { background: #0056b3; }
+        
         #log {
             width: 90%;
-            max-width: 400px;
-            height: 150px;
+            max-width: 350px;
+            height: 120px;
             border: 1px solid #555;
             margin: 10px auto;
             padding: 10px;
@@ -41,25 +40,27 @@
             background: #1E1E1E;
             border-radius: 5px;
         }
+
         .gauge-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
             margin-top: 10px;
         }
         .gauge {
-            width: 80px;
-            height: 80px;
+            width: 50px;
+            height: 50px;
         }
+
         input {
             width: 90%;
-            max-width: 280px;
-            padding: 10px;
+            max-width: 250px;
+            padding: 8px;
             margin: 8px;
             border: 1px solid #555;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 14px;
             background: #1E1E1E;
             color: white;
         }
@@ -67,10 +68,10 @@
 </head>
 <body>
 
-    <h2>Bluetooth Low Energy (BLE) Controller</h2>
+    <h2>BLE Controller</h2>
     <p id="status">Status: Disconnected</p>
 
-    <button id="connectBtn">Connect to Bluetooth</button>
+    <button id="connectBtn">Connect</button>
     <button id="disconnectBtn" disabled>Disconnect</button>
     <br>
 
@@ -190,7 +191,7 @@
             return new Chart(ctx, {
                 type: 'doughnut',
                 data: { datasets: [{ data: [0, max], backgroundColor: ['#007BFF', '#333'] }] },
-                options: { cutout: '80%', responsive: true }
+                options: { cutout: '85%', responsive: true }
             });
         }
 
