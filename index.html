@@ -12,13 +12,23 @@
             margin: 20px;
         }
         button {
-            padding: 10px;
-            margin: 5px;
+            padding: 12px;
+            margin: 8px;
             font-size: 16px;
             cursor: pointer;
+            width: 90%;
+            max-width: 300px;
+            border: none;
+            border-radius: 5px;
+            background: #007BFF;
+            color: white;
+        }
+        button:disabled {
+            background: #ccc;
         }
         #log {
-            width: 80%;
+            width: 90%;
+            max-width: 400px;
             height: 150px;
             border: 1px solid #ccc;
             margin: 10px auto;
@@ -26,21 +36,40 @@
             overflow-y: auto;
             text-align: left;
             background: #f9f9f9;
+            border-radius: 5px;
         }
         .log-entry {
             cursor: pointer;
             padding: 5px;
             border-bottom: 1px solid #ddd;
+            font-size: 14px;
         }
         .gauge-container {
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
-            gap: 30px;
+            gap: 15px;
             margin-top: 20px;
         }
         .gauge {
-            width: 200px;
-            height: 200px;
+            width: 45vw;
+            max-width: 200px;
+            height: auto;
+        }
+        input {
+            width: 90%;
+            max-width: 280px;
+            padding: 10px;
+            margin: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .gauge {
+                width: 80%;
+            }
         }
     </style>
 </head>
@@ -198,7 +227,7 @@
                 },
                 options: {
                     cutout: '80%',
-                    responsive: false
+                    responsive: true
                 }
             });
         }
