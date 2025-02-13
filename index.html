@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLE Controller (Dark Theme)</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -41,16 +40,21 @@
             border-radius: 5px;
         }
 
-        .gauge-container {
+        .card-container {
             display: flex;
             justify-content: center;
-            align-items: center;
-            gap: 5px;
+            gap: 10px;
             margin-top: 10px;
         }
-        .gauge {
-            width: 50px;
-            height: 50px;
+
+        .card {
+            width: 100px;
+            padding: 10px;
+            border-radius: 10px;
+            background: #007BFF;
+            color: white;
+            font-size: 14px;
+            text-align: center;
         }
 
         input {
@@ -79,9 +83,15 @@
     <button id="sendCommand" disabled>Send</button>
 
     <h3>Live Data:</h3>
-    <div class="gauge-container">
-        <canvas id="tempGauge" class="gauge"></canvas>
-        <canvas id="humidityGauge" class="gauge"></canvas>
+    <div class="card-container">
+        <div class="card">
+            <h4>Temp</h4>
+            <p id="tempValue">--°C</p>
+        </div>
+        <div class="card">
+            <h4>Humidity</h4>
+            <p id="humidityValue">--%</p>
+        </div>
     </div>
 
     <h3>Received Data:</h3>
@@ -158,8 +168,8 @@
                 let temperature = parseFloat(match[1]);
                 let humidity = parseFloat(match[2]);
 
-                updateGauge(tempGauge, temperature);
-                updateGauge(humidityGauge, humidity);
+                document.getElementById("tempValue").textContent = temperature + "°C";
+                document.getElementById("humidityValue").textContent = humidity + "%";
             }
         }
 
@@ -177,6 +187,9 @@
             document.getElementById("connectBtn").disabled = false;
             document.getElementById("disconnectBtn").disabled = true;
             document.getElementById("liveTrigger").disabled = true;
+
+            document.getElementById("tempValue").textContent = "--°C";
+            document.getElementById("humidityValue").textContent = "--%";
         }
 
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
@@ -186,23 +199,6 @@
             if (command) sendCommand(command);
         });
         document.getElementById("liveTrigger").addEventListener("click", () => sendCommand("@live=100"));
-
-        function createGauge(ctx, max) {
-            return new Chart(ctx, {
-                type: 'doughnut',
-                data: { datasets: [{ data: [0, max], backgroundColor: ['#007BFF', '#333'] }] },
-                options: { cutout: '85%', responsive: true }
-            });
-        }
-
-        function updateGauge(chart, value) {
-            chart.data.datasets[0].data[0] = value;
-            chart.update();
-        }
-
-        let tempGauge = createGauge(document.getElementById("tempGauge").getContext("2d"), 100);
-        let humidityGauge = createGauge(document.getElementById("humidityGauge").getContext("2d"), 100);
-
     </script>
 
 </body>
