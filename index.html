@@ -93,7 +93,7 @@
         }
 
         function processCertData(data) {
-            let match = data.match(/cert="([^"]+)"/);
+            let match = data.match(/#cert=(.*)$/);
             if (match) {
                 document.getElementById("certData").textContent = match[1];
             }
