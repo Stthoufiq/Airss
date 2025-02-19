@@ -100,7 +100,7 @@
         }
 
         function processReceivedData(data) {
-            let certMatch = data.match(/cert="([^"]+)"/);
+            let certMatch = data.match(/#cert="([^"]+)"/);
             if (certMatch) {
                 document.getElementById("certData").textContent = certMatch[1];
             }
