@@ -8,6 +8,7 @@
         body { font-family: Arial, sans-serif; text-align: center; }
         .container { max-width: 500px; margin: auto; padding: 20px; }
         #log { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .card { border: 1px solid #ccc; padding: 10px; margin: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -22,8 +23,19 @@
         <button id="certTrigger" disabled>Send @cert?</button>
         <h3>Received Data:</h3>
         <div id="log"></div>
-        <h3>Cert Data:</h3>
-        <p id="certData">---</p>
+        
+        <div class="card">
+            <h3>Temperature</h3>
+            <p id="temperature">---</p>
+        </div>
+        <div class="card">
+            <h3>Humidity</h3>
+            <p id="humidity">---</p>
+        </div>
+        <div class="card">
+            <h3>Certificate Details</h3>
+            <p id="certData">---</p>
+        </div>
     </div>
     
     <script>
@@ -92,6 +104,14 @@
             if (certMatch) {
                 document.getElementById("certData").textContent = certMatch[1];
             }
+            let tempMatch = data.match(/temp=([0-9.]+)/);
+            if (tempMatch) {
+                document.getElementById("temperature").textContent = tempMatch[1] + " °C";
+            }
+            let humidityMatch = data.match(/humidity=([0-9.]+)/);
+            if (humidityMatch) {
+                document.getElementById("humidity").textContent = humidityMatch[1] + " %";
+            }
         }
 
         function disconnectBLE() {
@@ -104,6 +124,8 @@
             document.getElementById("status").textContent = "Status: Disconnected";
             toggleButtons(false);
             document.getElementById("certData").textContent = "---";
+            document.getElementById("temperature").textContent = "---";
+            document.getElementById("humidity").textContent = "---";
         }
 
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
