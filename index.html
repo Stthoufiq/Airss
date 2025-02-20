@@ -3,108 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Dashboard</title>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Basic styles */
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #sidebar { display: none; position: fixed; top: 0; left: 0; width: 250px; height: 100%; background: #333; color: white; padding: 20px; }
-        #menuIcon { cursor: pointer; }
-        .gauge-container { display: inline-block; margin: 20px; }
-        .certificate-container { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #f4f4f4;
+        }
+        .navbar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: #333;
+            color: white;
+        }
+        .logo img {
+            height: 40px;
+            margin-right: 10px;
+        }
+        .sidebar {
+            position: fixed;
+            left: -250px;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background: #222;
+            padding: 20px;
+            transition: 0.3s;
+            color: white;
+        }
+        .sidebar.active {
+            left: 0;
+        }
+        .main-content {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .buttons button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            background: #007BFF;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .buttons button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .gauges {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .gauge {
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .certificate {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-    <nav>
-        <span id="menuIcon">☰</span>
-        <h1>IoT Dashboard</h1>
+    <nav class="navbar">
+        <div class="logo">
+            <img src="aarislogo.jpg" alt="Logo">
+            <span>Aampal</span>
+        </div>
+        <div class="menu-icon" id="menuIcon">&#9776;</div>
     </nav>
-    <div id="sidebar">
-        <button onclick="sendCommand('@cert?')">Request Certificate</button>
+
+    <div class="sidebar" id="sidebar">
+        <i class="fa-solid fa-xmark" id="close"></i>
+        <h1>Options</h1>
+        <input type="text" id="commandInput" placeholder="Enter command" disabled>
+        <button id="sendCommand" disabled>Send</button>
+        <h3>Received Data:</h3>
+        <div id="log"></div>
     </div>
-    <button onclick="connectBLE()">Connect</button>
-    <button onclick="disconnectBLE()">Disconnect</button>
-    
-    <div class="gauge-container">
-        <h3>Temperature</h3>
-        <div id="temperature-gauge">--</div>
+
+    <div class="main-content">
+        <p id="status">Status: Disconnected</p>
+        <div class="buttons">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+            <button id="liveTrigger" disabled>Trigger @live=100</button>
+        </div>
+        <div class="gauges">
+            <div class="gauge">
+                <span id="humidityValue">0%</span>
+            </div>
+            <div class="gauge">
+                <span id="temperatureValue">0°C</span>
+            </div>
+        </div>
+        <div class="certificate">
+            <button id="Certificate" disabled>Trigger @cert?</button>
+            <div id="display-certificate"></div>
+        </div>
     </div>
-    <div class="gauge-container">
-        <h3>Humidity</h3>
-        <div id="humidity-gauge">--</div>
-    </div>
-    <div class="certificate-container" id="display-certificate">
-        <h3>Certificate</h3>
-        <p>No certificate received</p>
-    </div>
-    
+
     <script>
-        let device, server, service, txCharacteristic;
-        const SERVICE_UUID = 'your-service-uuid';
-        const CHARACTERISTIC_UUID_RX = 'your-rx-characteristic-uuid';
-        const CHARACTERISTIC_UUID_TX = 'your-tx-characteristic-uuid';
+        document.getElementById('menuIcon').addEventListener('click', function () {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+        document.getElementById('close').addEventListener('click', function () {
+            document.getElementById('sidebar').classList.remove('active');
+        });
+
+        const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const CHARACTERISTIC_UUID_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const CHARACTERISTIC_UUID_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
         
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.style.display = sidebar.style.display === 'block' ? 'none' : 'block';
-        }
-        document.getElementById('menuIcon').addEventListener('click', toggleSidebar);
-        
+        let bleDevice = null;
+        let server = null;
+        let rxCharacteristic = null;
+        let txCharacteristic = null;
+
         async function connectBLE() {
             try {
-                device = await navigator.bluetooth.requestDevice({
+                bleDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [SERVICE_UUID]
                 });
-                server = await device.gatt.connect();
-                service = await server.getPrimaryService(SERVICE_UUID);
+
+                document.getElementById("status").textContent = "Status: Connecting...";
+                server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                rxCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_RX);
                 txCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_TX);
-                const rxCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_RX);
-                rxCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-                await rxCharacteristic.startNotifications();
-                console.log('Connected');
+
+                await txCharacteristic.startNotifications();
+                txCharacteristic.addEventListener("characteristicvaluechanged", handleNotifications);
+
+                document.getElementById("status").textContent = "Status: Connected!";
+                document.getElementById("commandInput").disabled = false;
+                document.getElementById("sendCommand").disabled = false;
+                document.getElementById("connectBtn").disabled = true;
+                document.getElementById("disconnectBtn").disabled = false;
+                document.getElementById("liveTrigger").disabled = false;
+
+                bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
             } catch (error) {
-                console.error('Connection failed', error);
+                alert("Failed to connect: " + error.message);
+                document.getElementById("status").textContent = "Status: Connection Failed";
             }
         }
-        
-        function disconnectBLE() {
-            if (device) {
-                device.gatt.disconnect();
-                console.log('Disconnected');
-            }
-        }
-        
-        function sendCommand(command) {
-            if (!txCharacteristic) return;
-            const encoder = new TextEncoder();
-            txCharacteristic.writeValue(encoder.encode(command));
-            console.log('Command sent:', command);
-        }
-        
+
         function handleNotifications(event) {
-            let data = new TextDecoder().decode(event.target.value);
-            console.log('Received:', data);
-            
-            if (data.startsWith("Live=")) {
-                processLiveData(data);
-            } else if (data.startsWith("#cert=")) {
-                updateCertificate(data);
+            let value = new TextDecoder().decode(event.target.value);
+            document.getElementById("log").textContent += value + "\n";
+        }
+
+        function disconnectBLE() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
             }
         }
-        
-        function processLiveData(data) {
-            const parts = data.replace("Live=", "").split(",");
-            if (parts.length === 2) {
-                document.getElementById('temperature-gauge').innerText = `${parts[0]} °C`;
-                document.getElementById('humidity-gauge').innerText = `${parts[1]} %`;
-            }
+
+        function onDisconnected() {
+            document.getElementById("status").textContent = "Status: Disconnected";
+            document.getElementById("commandInput").disabled = true;
+            document.getElementById("sendCommand").disabled = true;
+            document.getElementById("connectBtn").disabled = false;
+            document.getElementById("disconnectBtn").disabled = true;
+            document.getElementById("liveTrigger").disabled = true;
         }
-        
-        function updateCertificate(data) {
-            const certificateText = data.replace("#cert=", "");
-            document.getElementById('display-certificate').innerHTML = `<h3>Certificate</h3><p>${certificateText}</p>`;
-        }
+
+        document.getElementById("connectBtn").addEventListener("click", connectBLE);
+        document.getElementById("disconnectBtn").addEventListener("click", disconnectBLE);
     </script>
 </body>
 </html>
-
