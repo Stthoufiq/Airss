@@ -3,194 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-    
+    <title>BLE Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .sidebar { position: fixed; left: -250px; width: 250px; height: 100%; background: #333; color: white; transition: 0.3s; padding: 10px; }
+        .sidebar.active { left: 0; }
+        .cert-container { display: none; padding: 10px; background: #f1f1f1; border: 1px solid #ccc; margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <style>
-        /* General Styles */
-        .cert-container {
-            margin-top: 10px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
-            display: none;
-        }
-    </style>
-
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="logo">
-            <img src="aarislogo.jpg" alt="Logo">
-            <span>Aampal</span>
-        </div>
-        <div class="menu-icon" id="menuIcon">&#9776;</div>
-    </nav>
-
-    <!-- Sidebar -->
+    <button id="menuToggle">☰ Menu</button>
     <div class="sidebar" id="sidebar">
-        <i class="fa-solid fa-xmark" id="close"></i>
-        <h1>Options</h1>
+        <button id="closeSidebar">Close</button>
+        <h2>BLE Console</h2>
         <input type="text" id="commandInput" placeholder="Enter command" disabled>
         <button id="sendCommand" disabled>Send</button>
         <h3>Received Data:</h3>
         <div id="log"></div>
         <div id="certContainer" class="cert-container"></div>
     </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-        <p id="status">Status: Disconnected</p>
-        <div class="buttons">
-            <button id="connectBtn">Connect</button>
-            <button id="disconnectBtn" disabled>Disconnect</button>
-            <button id="liveTrigger" disabled>Trigger @live=100</button>
-            <button id="certBtn" disabled>Trigger @cert?</button>
-        </div>
-        <div class="gauges">
-            <div class="gauge">
-                <div class="gauge__body">
-                    <div class="gauge__fill" id="humidityFill"></div>
-                    <div class="gauge__cover"></div>
-                </div>
-                <span id="humidityValue">0</span>
-                <span>% Humidity</span>
-            </div>
-            <div class="gauge">
-                <div class="gauge__body">
-                    <div class="gauge__fill" id="temperatureFill"></div>
-                    <div class="gauge__cover"></div>
-                </div>
-                <span id="temperatureValue">0</span>
-                <span>°C Temperature</span>
-            </div>
-        </div>
-    </div>
-
+    
+    <h1>BLE Dashboard</h1>
+    <p id="status">Status: Disconnected</p>
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+    <button id="liveTrigger" disabled>Trigger @live=100</button>
+    <button id="certBtn" disabled>Trigger @cert?</button>
+    
     <script>
-        document.getElementById('menuIcon').addEventListener('click', function () {
-            document.getElementById('sidebar').classList.toggle('active');
-            const sidebar = document.getElementById("sidebar");
-            sidebar.style.width = sidebar.style.width === "100%" ? "0" : "100%";
-        });
-        document.getElementById('close').addEventListener('click', function () {
-            document.getElementById('sidebar').classList.toggle('active');
-            const sidebar = document.getElementById("sidebar");
-            sidebar.style.width = sidebar.style.width === "0%" ? "0" : "0%";
-        });
-
         const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const CHARACTERISTIC_UUID_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; 
-        const CHARACTERISTIC_UUID_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; 
+        const RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+        let device, server, rxChar, txChar;
 
-        let bleDevice = null;
-        let server = null;
-        let rxCharacteristic = null;
-        let txCharacteristic = null;
-
+        document.getElementById('menuToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('active'));
+        document.getElementById('closeSidebar').addEventListener('click', () => document.getElementById('sidebar').classList.remove('active'));
+        
         async function connectBLE() {
             try {
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [SERVICE_UUID]
-                });
-
-                document.getElementById("status").textContent = "Status: Connecting...";
-                server = await bleDevice.gatt.connect();
-
+                device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SERVICE_UUID] });
+                server = await device.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
-                rxCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_RX);
-                txCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID_TX);
+                rxChar = await service.getCharacteristic(RX_UUID);
+                txChar = await service.getCharacteristic(TX_UUID);
+                txChar.addEventListener("characteristicvaluechanged", handleNotifications);
+                await txChar.startNotifications();
+                updateUI(true);
+                device.addEventListener("gattserverdisconnected", onDisconnected);
+            } catch (error) { alert("Connection failed: " + error.message); }
+        }
 
-                await txCharacteristic.startNotifications();
-                txCharacteristic.addEventListener("characteristicvaluechanged", handleNotifications);
-
-                document.getElementById("status").textContent = "Status: Connected!";
-                document.getElementById("commandInput").disabled = false;
-                document.getElementById("sendCommand").disabled = false;
-                document.getElementById("connectBtn").disabled = true;
-                document.getElementById("disconnectBtn").disabled = false;
-                document.getElementById("liveTrigger").disabled = false;
-                document.getElementById("certBtn").disabled = false;
-
-                bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
-
-            } catch (error) {
-                alert("Failed to connect: " + error.message);
-                document.getElementById("status").textContent = "Status: Connection Failed";
+        function handleNotifications(event) {
+            let data = new TextDecoder().decode(event.target.value);
+            document.getElementById("log").innerHTML += `<p>${data}</p>`;
+            let certMatch = data.match(/#cert=(.*)/);
+            if (certMatch) {
+                document.getElementById("certContainer").textContent = "Certificate: " + certMatch[1].trim();
+                document.getElementById("certContainer").style.display = "block";
             }
         }
 
         async function sendCommand(command) {
-            if (!rxCharacteristic) return alert("Not connected!");
-
-            try {
-                let encoder = new TextEncoder().encode(command);
-                await rxCharacteristic.writeValue(encoder);
-            } catch (error) {
-                console.error("❌ Send Error:", error);
-            }
+            if (!rxChar) return alert("Not connected!");
+            await rxChar.writeValue(new TextEncoder().encode(command));
         }
 
-        function handleNotifications(event) {
-            let value = new TextDecoder().decode(event.target.value);
-            let logDiv = document.getElementById("log");
-            let logEntry = document.createElement("div");
-            logEntry.textContent = value;
-            logDiv.appendChild(logEntry);
-            logDiv.scrollTop = logDiv.scrollHeight;
-
-            processLiveData(value);
-        }
-
-        function processLiveData(data) {
-            let liveMatch = data.match(/Live=([\d.]+),([\d.]+)/);
-            let certMatch = data.match(/#cert=(.*)/);
-
-            if (liveMatch) {
-                let temperature = parseFloat(liveMatch[1]);
-                let humidity = parseFloat(liveMatch[2]);
-
-                document.getElementById("temperatureValue").textContent = temperature + "°C";
-                document.getElementById("humidityValue").textContent = humidity + "%";
-            }
-
-            if (certMatch) {
-                let certValue = certMatch[1].trim();
-                let certContainer = document.getElementById("certContainer");
-                certContainer.textContent = "Certificate: " + certValue;
-                certContainer.style.display = "block";
-            }
-        }
-
-        function disconnectBLE() {
-            if (!bleDevice) return;
-            if (bleDevice.gatt.connected) {
-                bleDevice.gatt.disconnect();
-            }
-        }
-
-        function onDisconnected() {
-            document.getElementById("status").textContent = "Status: Disconnected";
-            document.getElementById("commandInput").disabled = true;
-            document.getElementById("sendCommand").disabled = true;
-            document.getElementById("connectBtn").disabled = false;
-            document.getElementById("disconnectBtn").disabled = true;
-            document.getElementById("liveTrigger").disabled = true;
-            document.getElementById("certBtn").disabled = true;
-
-            document.getElementById("temperatureValue").textContent = "--°C";
-            document.getElementById("humidityValue").textContent = "--%";
-            document.getElementById("certContainer").style.display = "none";
+        function onDisconnected() { updateUI(false); }
+        function updateUI(connected) {
+            document.getElementById("status").textContent = connected ? "Connected" : "Disconnected";
+            document.getElementById("connectBtn").disabled = connected;
+            document.getElementById("disconnectBtn").disabled = !connected;
+            document.getElementById("liveTrigger").disabled = !connected;
+            document.getElementById("certBtn").disabled = !connected;
+            document.getElementById("commandInput").disabled = !connected;
+            document.getElementById("sendCommand").disabled = !connected;
+            if (!connected) document.getElementById("certContainer").style.display = "none";
         }
 
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
-        document.getElementById("disconnectBtn").addEventListener("click", disconnectBLE);
-        document.getElementById("sendCommand").addEventListener("click", () => {
-            let command = document.getElementById("commandInput").value.trim();
-            if (command) sendCommand(command);
-        });
+        document.getElementById("disconnectBtn").addEventListener("click", () => device?.gatt.disconnect());
+        document.getElementById("sendCommand").addEventListener("click", () => sendCommand(document.getElementById("commandInput").value));
         document.getElementById("liveTrigger").addEventListener("click", () => sendCommand("@live=100"));
         document.getElementById("certBtn").addEventListener("click", () => sendCommand("@cert?"));
     </script>
