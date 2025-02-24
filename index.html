@@ -303,7 +303,6 @@
             <button id="connectBtn">Connect</button>
             <button id="disconnectBtn" disabled>Disconnect</button>
             <button id="liveTrigger" disabled>Trigger @live=100</button>
-            <button id="cert">certification</button>
         </div>
         <div class="gauges">
             <div class="gauge">
@@ -409,7 +408,6 @@
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
         document.getElementById("disconnectBtn").addEventListener("click", disconnectBLE);
         document.getElementById("liveTrigger").addEventListener("click", () => sendCommand("@live=100"));
-        document.getElementById("cert").addEventListener("click",()=> sendCommand("@cert?"))
     </script>
 </body>
 </html>
