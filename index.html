@@ -8,9 +8,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-    <style>/* General Styles */
-      
-        </style>
+    <style>
+        /* General Styles */
+        .cert-container {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            display: none;
+        }
+    </style>
+
     <!-- Navbar -->
     <nav class="navbar">
         <div class="logo">
@@ -28,17 +36,17 @@
         <button id="sendCommand" disabled>Send</button>
         <h3>Received Data:</h3>
         <div id="log"></div>
+        <div id="certContainer" class="cert-container"></div>
     </div>
 
     <!-- Main Content -->
     <div class="main-content">
         <p id="status">Status: Disconnected</p>
         <div class="buttons">
-            
             <button id="connectBtn">Connect</button>
             <button id="disconnectBtn" disabled>Disconnect</button>
             <button id="liveTrigger" disabled>Trigger @live=100</button>
-            <button id="cert?" disabled>Trigger @cert?</button>
+            <button id="certBtn" disabled>Trigger @cert?</button>
         </div>
         <div class="gauges">
             <div class="gauge">
@@ -72,12 +80,7 @@
             sidebar.style.width = sidebar.style.width === "0%" ? "0" : "0%";
         });
 
-        function setGaugeValue(gaugeFill, value) {
-            let rotation = 0.5 * (value / 100);
-            gaugeFill.style.transform = `rotate(${rotation}turn)`;
-        }
-
-       const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
         const CHARACTERISTIC_UUID_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; 
         const CHARACTERISTIC_UUID_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; 
 
@@ -109,7 +112,7 @@
                 document.getElementById("connectBtn").disabled = true;
                 document.getElementById("disconnectBtn").disabled = false;
                 document.getElementById("liveTrigger").disabled = false;
-                document.getElementById("cert?").disabled = false;
+                document.getElementById("certBtn").disabled = false;
 
                 bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
 
@@ -142,27 +145,25 @@
         }
 
         function processLiveData(data) {
-            let match = data.match(/Live=([\d.]+),([\d.]+)/);
-            if (match) {
-                let temperature = parseFloat(match[1]);
-                let humidity = parseFloat(match[2]);
-                 const humidityGauge = document.querySelector('.gauges .gauge:first-child');
-                 const temperatureGauge = document.querySelector('.gauges .gauge:last-child');
-                  setGaugeValue(humidityGauge, humidity);
-                   setGaugeValue(temperatureGauge, temperature);
-    
-                document.getElementById("tempValue").textContent = temperature + "°C";
+            let liveMatch = data.match(/Live=([\d.]+),([\d.]+)/);
+            let certMatch = data.match(/#cert=(.*)/);
+
+            if (liveMatch) {
+                let temperature = parseFloat(liveMatch[1]);
+                let humidity = parseFloat(liveMatch[2]);
+
+                document.getElementById("temperatureValue").textContent = temperature + "°C";
                 document.getElementById("humidityValue").textContent = humidity + "%";
             }
+
+            if (certMatch) {
+                let certValue = certMatch[1].trim();
+                let certContainer = document.getElementById("certContainer");
+                certContainer.textContent = "Certificate: " + certValue;
+                certContainer.style.display = "block";
+            }
         }
-        function setGaugeValue(gauge, value) {
-        const fill = gauge.querySelector('.gauge__fill');
-        const valueSpan = gauge.querySelector('span:first-of-type');
-        const maxRotation = 0.5; // 180 degrees (0.5 turn)
-        const rotation = maxRotation * (value / 100); // Scale value to rotation
-        fill.style.transform = `rotate(${rotation}turn)`;
-        valueSpan.textContent = value;
-    }
+
         function disconnectBLE() {
             if (!bleDevice) return;
             if (bleDevice.gatt.connected) {
@@ -176,11 +177,12 @@
             document.getElementById("sendCommand").disabled = true;
             document.getElementById("connectBtn").disabled = false;
             document.getElementById("disconnectBtn").disabled = true;
-            document.getElementById("liveTrigger").disabled = true
-            document.getElementById("cert?").disabled = true;
+            document.getElementById("liveTrigger").disabled = true;
+            document.getElementById("certBtn").disabled = true;
 
-            document.getElementById("tempValue").textContent = "--°C";
+            document.getElementById("temperatureValue").textContent = "--°C";
             document.getElementById("humidityValue").textContent = "--%";
+            document.getElementById("certContainer").style.display = "none";
         }
 
         document.getElementById("connectBtn").addEventListener("click", connectBLE);
@@ -190,7 +192,7 @@
             if (command) sendCommand(command);
         });
         document.getElementById("liveTrigger").addEventListener("click", () => sendCommand("@live=100"));
-        document.getElementById("cert?").addEventListener("click", () => sendCommand("@cert?"));
+        document.getElementById("certBtn").addEventListener("click", () => sendCommand("@cert?"));
     </script>
 </body>
 </html>
